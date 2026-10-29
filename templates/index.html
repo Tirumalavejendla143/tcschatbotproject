@@ -1,131 +1,70 @@
- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TCS GenAI PDF Chatbot</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f3f5f9;
-      color: #202938;
-    }
-    header {
-      background: #173b70;
-      color: white;
-      padding: 22px;
-      text-align: center;
-    }
-    main {
-      max-width: 760px;
-      margin: 35px auto;
-      padding: 20px;
-    }
-    #chat {
-      background: white;
-      min-height: 320px;
-      max-height: 55vh;
-      overflow-y: auto;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 3px 14px #00000010;
-    }
-    .message {
-      padding: 12px 15px;
-      margin: 10px 0;
-      border-radius: 10px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      line-height: 1.5;
-    }
-    .user { background: #e3edff; margin-left: 35px; }
-    .bot { background: #f0f2f5; margin-right: 35px; }
-    form { display: flex; gap: 10px; margin-top: 16px; }
-    input {
-      flex: 1;
-      min-width: 0;
-      padding: 14px;
-      border: 1px solid #cbd2dc;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    button {
-      border: 0;
-      border-radius: 8px;
-      padding: 14px 20px;
-      background: #173b70;
-      color: white;
-      cursor: pointer;
-    }
-    button:disabled { opacity: .6; cursor: wait; }
-    #status { color: #596579; font-size: 14px; margin-top: 12px; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>TCS GenAI PDF Chatbot</h1>
-    <p>Ask questions about your indexed TCS document</p>
-  </header>
-  <main>
-    <div id="chat" aria-live="polite">
-      <div class="message bot">Hello! Ask me a question about the TCS PDF.</div>
-    </div>
-    <form id="chatForm">
-      <input id="question" placeholder="Type your question..." autocomplete="off" required>
-      <button id="send" type="submit">Send</button>
-    </form>
-    <p id="status">Connects to your Flask API when it is running.</p>
-  </main>
-  <script>
-    const form = document.getElementById("chatForm");
-    const input = document.getElementById("question");
-    const chat = document.getElementById("chat");
-    const statusText = document.getElementById("status");
-    const send = document.getElementById("send");
 
-    function addMessage(text, type) {
-      const div = document.createElement("div");
-      div.className = "message " + type;
-      div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-    }
+<script>
+  const form = document.getElementById("chatForm");
+  const input = document.getElementById("question");
+  const chat = document.getElementById("chat");
+  const statusText = document.getElementById("status");
+  const send = document.getElementById("send");
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const question = input.value.trim();
-      if (!question) return;
+  function addMessage(text, type) {
+    const div = document.createElement("div");
+    div.className = "message " + type;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
 
-      addMessage(question, "user");
-      input.value = "";
-      send.disabled = true;
-      statusText.textContent = "Getting an answer...";
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-      try {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question })
-        });
+    const question = input.value.trim();
+    if (!question) return;
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Request failed (" + response.status + ")");
-        }
+    addMessage(question, "user");
+    input.value = "";
+    send.disabled = true;
+    statusText.textContent = "Getting an answer...";
 
-        const answer = data.answer || data.response || data.message;
-        addMessage(answer || JSON.stringify(data), "bot");
-        statusText.textContent = "Response received.";
-      } catch (error) {
-        addMessage("Could not connect to the chatbot backend. " + error.message, "bot");
-        statusText.textContent = "Backend connection failed.";
-      } finally {
-        send.disabled = false;
-        input.focus();
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Request failed (" + response.status + ")"
+        );
       }
-    });
-  </script>
-</body>
-</html>
+
+      const answer =
+        data.answer || data.response || data.message || "";
+
+      const sourceText =
+        Array.isArray(data.sources) && data.sources.length
+          ? "\n\nSources: " + data.sources.map(s =>
+              `${s.source || "TCS PDF"} (page ${s.page ?? "unknown"})`
+            ).join(", ")
+          : "";
+
+      addMessage(
+        (answer || JSON.stringify(data)) + sourceText,
+        "bot"
+      );
+
+      statusText.textContent = "Response received.";
+    } catch (error) {
+      addMessage(
+        "Could not connect to the chatbot backend. " + error.message,
+        "bot"
+      );
+      statusText.textContent = "Backend connection failed.";
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  });
+</script>
