@@ -1,70 +1,205 @@
 
-<script>
-  const form = document.getElementById("chatForm");
-  const input = document.getElementById("question");
-  const chat = document.getElementById("chat");
-  const statusText = document.getElementById("status");
-  const send = document.getElementById("send");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCS GenAI Chatbot</title>
+  <style>
+    * { box-sizing: border-box; }
 
-  function addMessage(text, type) {
-    const div = document.createElement("div");
-    div.className = "message " + type;
-    div.textContent = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-  }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f6fb;
+      color: #1f2937;
+    }
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
+    header {
+      background: #123b70;
+      color: white;
+      padding: 22px;
+      text-align: center;
+    }
 
-    const question = input.value.trim();
-    if (!question) return;
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; }
 
-    addMessage(question, "user");
-    input.value = "";
-    send.disabled = true;
-    statusText.textContent = "Getting an answer...";
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 0 16px;
+    }
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question })
-      });
+    .panel {
+      background: white;
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 4px 18px #00000012;
+    }
 
-      const data = await response.json();
+    #chat {
+      height: 350px;
+      overflow-y: auto;
+      border: 1px solid #e1e7ef;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      background: #fafcff;
+    }
 
-      if (!response.ok) {
-        throw new Error(
-          data.error || "Request failed (" + response.status + ")"
-        );
-      }
+    .message {
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
 
-      const answer =
-        data.answer || data.response || data.message || "";
+    .user {
+      background: #dceafe;
+      margin-left: 35px;
+    }
 
-      const sourceText =
-        Array.isArray(data.sources) && data.sources.length
+    .bot {
+      background: #e8f5e9;
+      margin-right: 35px;
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 13px;
+      border: 1px solid #ccd5e0;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 13px 20px;
+      background: #1769aa;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #status {
+      color: #64748b;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #64748b;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TCS GenAI Chatbot</h1>
+    <p>Ask questions about the TCS PDF document</p>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>Chat with your document</h2>
+      <div id="chat" aria-live="polite">
+        <div class="message bot">
+          Hello! Welcome to the TCS GenAI Chatbot. Enter a question to get started.
+        </div>
+      </div>
+
+      <form id="chatForm">
+        <input
+          id="question"
+          type="text"
+          placeholder="Ask a question..."
+          autocomplete="off"
+          required
+        >
+        <button id="send" type="submit">Send</button>
+      </form>
+
+      <p id="status">Ready to chat.</p>
+    </section>
+  </main>
+
+  <footer>Built with Python, Flask, FAISS and Generative AI</footer>
+
+  <script>
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("question");
+    const chat = document.getElementById("chat");
+    const statusText = document.getElementById("status");
+    const send = document.getElementById("send");
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = "message " + type;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const question = input.value.trim();
+      if (!question) return;
+
+      addMessage(question, "user");
+      input.value = "";
+      send.disabled = true;
+      statusText.textContent = "Getting an answer...";
+
+      try {
+        const response = await fetch("https://YOUR-BACKEND-URL/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Request failed (" + response.status + ")");
+        }
+
+        const answer = data.answer || data.response || data.message || "No answer received.";
+        const sources = Array.isArray(data.sources) && data.sources.length
           ? "\n\nSources: " + data.sources.map(s =>
               `${s.source || "TCS PDF"} (page ${s.page ?? "unknown"})`
             ).join(", ")
           : "";
 
-      addMessage(
-        (answer || JSON.stringify(data)) + sourceText,
-        "bot"
-      );
-
-      statusText.textContent = "Response received.";
-    } catch (error) {
-      addMessage(
-        "Could not connect to the chatbot backend. " + error.message,
-        "bot"
-      );
-      statusText.textContent = "Backend connection failed.";
-    } finally {
-      send.disabled = false;
-      input.focus();
-    }
-  });
-</script>
+        addMessage(answer + sources, "bot");
+        statusText.textContent = "Response received.";
+      } catch (error) {
+        addMessage(
+          "The chatbot backend is not connected yet. The webpage is published, but AI answers require a hosted backend.",
+          "bot"
+        );
+        statusText.textContent = "Backend not connected.";
+      } finally {
+        send.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
