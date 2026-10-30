@@ -4,7 +4,16 @@ from flask import jsonify
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from flask_cors import CORS
 app = Flask(__name__)
+CORS(app, resources={
+    r"/tcs": {
+        "origins": [
+            "http://127.0.0.1:8001",
+            "http://localhost:8001"
+        ]
+    }
+})
 
 # Load embedding model once
 embeddings = HuggingFaceEmbeddings(
@@ -18,7 +27,7 @@ vector_store = FAISS.load_local(
     allow_dangerous_deserialization=True
 )
 
-# Load GPT-2 model once
+# Load FLAN-T5 model once
 tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
 model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
 
@@ -57,7 +66,7 @@ Context:
 Answer:
 """
 
-    # step 3: pass prompt to GPT-2
+    # step 3: pass prompt to FLAN-T5
     inputs = tokenizer(prompt, return_tensors="pt",truncation=True, max_length=512)
 
     response = model.generate(
@@ -73,7 +82,11 @@ Answer:
     )
 
     return jsonify({
-        "gpt_response": answer
+        "gpt_response": answer,
+        "sources": [
+            {"page": doc.metadata.get("page")}
+            for doc in context
+        ]
     })
 
 
